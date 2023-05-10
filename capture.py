@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 from device import Device
 import json
+from itertools import combinations
 
 found, device_info = dai.Device.getFirstAvailableDevice() # type: ignore
 
@@ -130,6 +131,10 @@ while True:
 			for name, img in device.last_frame.items():
 				cv2.imwrite(f"{device.device_dir}/{name}.png", img)
 
+			for cam_a, cam_b in combinations(["left", "right", "color"], 2):
+				results[f"{cam_a}_{cam_b}_roll_diff"] = np.abs(results[f"{cam_a}_roll_angle"] - results[f"{cam_b}_roll_angle"])
+				results[f"{cam_a}_{cam_b}_yaw_diff"] = np.abs(results[f"{cam_a}_yaw_angle"] - results[f"{cam_b}_yaw_angle"])
+				results[f"{cam_a}_{cam_b}_pitch_diff"] = np.abs(results[f"{cam_a}_pitch_angle"] - results[f"{cam_b}_pitch_angle"])
 			with open(f"{device.device_dir}/results.json", "w") as f:
 				json.dump(results, f, indent=4)
 
