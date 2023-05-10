@@ -1,6 +1,6 @@
 import depthai as dai
 from typing import List, Union, Optional, Dict
-from depthai_helpers.camera_feature_conversions import cam_to_mono_res, cam_to_rgb_res
+from camera_feature_conversions import cam_to_mono_res, cam_to_rgb_res
 import numpy as np
 import cv2
 from pathlib import Path
