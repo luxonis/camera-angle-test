@@ -5,17 +5,11 @@ from device import Device
 import json
 from itertools import combinations
 
-found, device_info = dai.Device.getFirstAvailableDevice() # type: ignore
-
-if not found:
-	raise Exception("No device connected!")
-
-device = Device(device_info)
 
 
 CAMERA_WALL_DISTANCE = 1 # m
 
-frame_width = 360
+frame_width = 300
 
 offsets = { # compensation for different camera positions (in m)
     "right": -0.0375,
@@ -65,80 +59,89 @@ def get_rotation(points):
 def get_board_width(points):
 	return np.linalg.norm(points[0] - points[1])
 
-msg = ""
+if __name__ == "__main__":
+	found, device_info = dai.Device.getFirstAvailableDevice() # type: ignore
 
-while True:
-	device.update()
+	if not found:
+		raise Exception("No device connected!")
 
-	if len(device.last_frame.keys()) == 0:
-		continue
-	
-	img_combined = np.zeros((frame_width, frame_width*len(device.last_frame.keys()), 3), dtype=np.uint8)
-	i = 0
-	results = {}
-	all_cams_detected = True
-
-	for name, img in device.last_frame.items():
-		if len(img.shape) == 2:
-			img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-
-		img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-		roll_angle = yaw_angle = pitch_angle = np.nan
-		try:
-			points = get_corners(img_gray)
-			center_x, center_y = get_center(points)
-			angle = get_rotation(points)
-			board_width = get_board_width(points)
-			px2m = 0.6 / board_width
-			offset = offsets[name]
-
-			roll_angle = np.rad2deg(angle)
-			yaw_angle = np.rad2deg(np.arctan2(offset + px2m * (img.shape[1]/2 - center_x), CAMERA_WALL_DISTANCE))
-			pitch_angle = np.rad2deg(np.arctan2(px2m * (img.shape[0]/2 - center_y), CAMERA_WALL_DISTANCE))
-
-			results[f"{name}_roll_angle"] = float(roll_angle)
-			results[f"{name}_yaw_angle"] = float(yaw_angle)
-			results[f"{name}_pitch_angle"] = float(pitch_angle)
+	device = Device(device_info)
 
 
-			img = img.copy()
-			for p in points:
-				cv2.circle(img, tuple(p.astype(int)), img.shape[0]//40, (0, 0, 255), -1)
+	msg = ""
 
-			
-		except:
-			all_cams_detected = False
+	while True:
+		device.update()
 
-		img_downscale = cv2.resize(img, (frame_width, int(frame_width/img.shape[1]*img.shape[0])), interpolation=cv2.INTER_AREA)
-		cv2.putText(img_downscale, name, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
-		cv2.putText(img_downscale, f"roll: {roll_angle:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
-		cv2.putText(img_downscale, f"yaw: {yaw_angle:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
-		cv2.putText(img_downscale, f"pitch: {pitch_angle:.2f}", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
-		img_combined[0:img_downscale.shape[0], i*frame_width:(i+1)*frame_width] = img_downscale
-		cv2.putText(img_combined, msg, (10, frame_width-30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
-		i += 1
-	cv2.imshow("preview", img_combined)
+		if len(device.last_frame.keys()) == 0:
+			continue
+		
+		img_combined = np.zeros((frame_width, frame_width*len(device.last_frame.keys()), 3), dtype=np.uint8)
+		i = 0
+		results = {}
+		all_cams_detected = True
 
-	depth_msg = device.depth_queue.tryGet()
+		for name, img in device.last_frame.items():
+			if len(img.shape) == 2:
+				img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
-	key = cv2.waitKey(1)
+			img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+			roll_angle = yaw_angle = pitch_angle = np.nan
+			try:
+				points = get_corners(img_gray)
+				center_x, center_y = get_center(points)
+				angle = get_rotation(points)
+				board_width = get_board_width(points)
+				px2m = 0.6 / board_width
+				offset = offsets[name]
 
-	if key == ord('s'):
-		if not all_cams_detected:
-			msg = "Not all cameras detected the markers"
-		else:
-			msg = "Saved"
-			for name, img in device.last_frame.items():
-				cv2.imwrite(f"{device.device_dir}/{name}.png", img)
+				roll_angle = np.rad2deg(angle)
+				yaw_angle = np.rad2deg(np.arctan2(offset + px2m * (img.shape[1]/2 - center_x), CAMERA_WALL_DISTANCE))
+				pitch_angle = np.rad2deg(np.arctan2(px2m * (img.shape[0]/2 - center_y), CAMERA_WALL_DISTANCE))
 
-			for cam_a, cam_b in combinations(["left", "right", "color"], 2):
-				results[f"{cam_a}_{cam_b}_roll_diff"] = np.abs(results[f"{cam_a}_roll_angle"] - results[f"{cam_b}_roll_angle"])
-				results[f"{cam_a}_{cam_b}_yaw_diff"] = np.abs(results[f"{cam_a}_yaw_angle"] - results[f"{cam_b}_yaw_angle"])
-				results[f"{cam_a}_{cam_b}_pitch_diff"] = np.abs(results[f"{cam_a}_pitch_angle"] - results[f"{cam_b}_pitch_angle"])
-			with open(f"{device.device_dir}/results.json", "w") as f:
-				json.dump(results, f, indent=4)
+				results[f"{name}_roll_angle"] = float(roll_angle)
+				results[f"{name}_yaw_angle"] = float(yaw_angle)
+				results[f"{name}_pitch_angle"] = float(pitch_angle)
 
-		print(msg)
 
-	if key == ord('q'):
-		break
+				img = img.copy()
+				for p in points:
+					cv2.circle(img, tuple(p.astype(int)), img.shape[0]//40, (0, 0, 255), -1)
+
+				
+			except:
+				all_cams_detected = False
+
+			img_downscale = cv2.resize(img, (frame_width, int(frame_width/img.shape[1]*img.shape[0])), interpolation=cv2.INTER_AREA)
+			cv2.putText(img_downscale, name, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
+			cv2.putText(img_downscale, f"roll: {roll_angle:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+			cv2.putText(img_downscale, f"yaw: {yaw_angle:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+			cv2.putText(img_downscale, f"pitch: {pitch_angle:.2f}", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+			img_combined[0:img_downscale.shape[0], i*frame_width:(i+1)*frame_width] = img_downscale
+			cv2.putText(img_combined, msg, (10, frame_width-30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
+			i += 1
+		cv2.imshow("preview", img_combined)
+
+		depth_msg = device.depth_queue.tryGet()
+
+		key = cv2.waitKey(1)
+
+		if key == ord('s'):
+			if not all_cams_detected:
+				msg = "Not all cameras detected the markers"
+			else:
+				msg = "Saved"
+				for name, img in device.last_frame.items():
+					cv2.imwrite(f"{device.device_dir}/{name}.png", img)
+
+				for cam_a, cam_b in combinations(["left", "right", "color"], 2):
+					results[f"{cam_a}_{cam_b}_roll_diff"] = np.abs(results[f"{cam_a}_roll_angle"] - results[f"{cam_b}_roll_angle"])
+					results[f"{cam_a}_{cam_b}_yaw_diff"] = np.abs(results[f"{cam_a}_yaw_angle"] - results[f"{cam_b}_yaw_angle"])
+					results[f"{cam_a}_{cam_b}_pitch_diff"] = np.abs(results[f"{cam_a}_pitch_angle"] - results[f"{cam_b}_pitch_angle"])
+				with open(f"{device.device_dir}/results.json", "w") as f:
+					json.dump(results, f, indent=4)
+
+			print(msg)
+
+		if key == ord('q'):
+			break
