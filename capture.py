@@ -19,6 +19,15 @@ offsets = { # compensation for different camera positions (in m)
     "rectified_left": 0.0375,
 }
 
+offsets_y = { # compensation for different camera positions (in m)
+    "right": 0,
+    "vertical": 0.0,
+    "center": 0,
+    "left": 0,
+    "rectified_left": 0,
+}
+
+
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
 
 def get_corners(image):
@@ -104,10 +113,11 @@ if __name__ == "__main__":
 				#	print(f"{name}, Board {board_width}")
 				px2m = 0.6 / board_width
 				offset = offsets[name]
+				offset_y = offsets_y[name]
 
 				roll_angle = np.rad2deg(angle)
 				yaw_angle = np.rad2deg(np.arctan2(offset + px2m * (img.shape[1]/2 - center_x), CAMERA_WALL_DISTANCE))
-				pitch_angle = np.rad2deg(np.arctan2(px2m * (img.shape[0]/2 - center_y), CAMERA_WALL_DISTANCE))
+				pitch_angle = np.rad2deg(np.arctan2(offset_y + px2m * (img.shape[0]/2 - center_y), CAMERA_WALL_DISTANCE))
 
 				results[f"{name}_roll_angle"] = float(roll_angle)
 				results[f"{name}_yaw_angle"] = float(yaw_angle)
