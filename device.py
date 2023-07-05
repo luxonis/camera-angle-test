@@ -6,7 +6,7 @@ import cv2
 from pathlib import Path
 
 class Device:
-	def __init__(self, device_info: dai.DeviceInfo, create_stereo=False):
+	def __init__(self, device_info: dai.DeviceInfo, create_stereo=True):
 		self.device = dai.Device(device_info)
 		self.last_frame: Dict[str, np.ndarray] = {}
 		self.device_dir = Path(__file__).parent / "data" / self.device.getMxId()
