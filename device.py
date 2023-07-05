@@ -25,7 +25,6 @@ class Device:
 		for camera in self.device.getConnectedCameraFeatures():
 			xout = self.pipeline.createXLinkOut()
 			xout.setStreamName(camera.name)
-
 			if dai.CameraSensorType.COLOR in camera.supportedTypes:
 				# create color camera
 				cam_node = self.pipeline.createColorCamera()
@@ -36,6 +35,7 @@ class Device:
 				cam_node.setIspScale(2, 3)
 				cam_node.isp.link(xout.input)
 			elif dai.CameraSensorType.MONO in camera.supportedTypes:
+				print(camera.sensorName)
 				# create mono camera
 				cam_node = self.pipeline.createMonoCamera()
 				cam_node.setBoardSocket(camera.socket)
@@ -44,7 +44,13 @@ class Device:
 					cam_node.setResolution(res)
 				cam_node.out.link(xout.input)
 			else:
-				# unsupported sensor type
+				cam_node = self.pipeline.createColorCamera()
+				cam_node.setBoardSocket(camera.socket)
+				res = cam_to_rgb_res(camera.sensorName)
+				if res is not None:
+					cam_node.setResolution(res)
+				cam_node.setIspScale(2, 3)
+				cam_node.isp.link(xout.input)
 				continue
 			if camera.socket == self.calibration.getStereoLeftCameraId():
 				self.left_camera = cam_node
@@ -75,10 +81,11 @@ class Device:
 
 			xout_depth = self.pipeline.createXLinkOut()
 			xout_depth.setStreamName("depth")
-			xout_rectified_left = self.pipeline.createXLinkOut()
-			xout_rectified_left.setStreamName("rectified_left")
-			xout_rectified_right = self.pipeline.createXLinkOut()
-			xout_rectified_right.setStreamName("rectified_right")
+			if self.device.getMxId()!="xlinkserver":
+				xout_rectified_left = self.pipeline.createXLinkOut()
+				xout_rectified_left.setStreamName("rectified_left")
+				xout_rectified_right = self.pipeline.createXLinkOut()
+				xout_rectified_right.setStreamName("rectified_right")
 
 			stereo_depth.depth.link(xout_depth.input)
 			stereo_depth.rectifiedLeft.link(xout_rectified_left.input)
@@ -93,11 +100,11 @@ class Device:
 
 		for camera in self.device.getConnectedCameraFeatures():
 			self.camera_queues[camera.name] = self.device.getOutputQueue(name=camera.name, maxSize=1, blocking=False)
+		if self.device.getMxId()!="xlinkserver":
+			self.camera_queues["rectified_left"] = self.device.getOutputQueue("rectified_left")
+			self.camera_queues["rectified_right"] = self.device.getOutputQueue("rectified_right")
 
-		self.camera_queues["rectified_left"] = self.device.getOutputQueue("rectified_left")
-		self.camera_queues["rectified_right"] = self.device.getOutputQueue("rectified_right")
-
-		self.depth_queue = self.device.getOutputQueue("depth")
+			self.depth_queue = self.device.getOutputQueue("depth")
 
 	def update(self):
 		res: Dict[str, np.ndarray] = {}
@@ -107,8 +114,6 @@ class Device:
 				img = msg.getCvFrame() # type: ignore
 				res[name] = img
 				self.last_frame[name] = img
-
-		depth_msg = self.depth_queue.tryGet()
 
 		return res
 
@@ -124,8 +129,6 @@ class Device:
 
 				self.last_frame[name] = img
 				cv2.imshow(name, img_downscaled)
-
-		depth_msg = self.depth_queue.tryGet()
 
 		key = cv2.waitKey(1)
 

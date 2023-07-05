@@ -26,6 +26,7 @@ cam_to_rgb_res_dict = {
 	'IMX582' : dai.ColorCameraProperties.SensorResolution.THE_12_MP,
 	'LCM48' : dai.ColorCameraProperties.SensorResolution.THE_12_MP, # Same as IMX582
 	'AR0234' : dai.ColorCameraProperties.SensorResolution.THE_1200_P,
+	'IMX412': dai.ColorCameraProperties.SensorResolution.THE_1080_P,
 }
 
 if hasattr(dai.ColorCameraProperties.SensorResolution, 'THE_4000X3000'):

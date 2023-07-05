@@ -13,8 +13,8 @@ frame_width = 300
 
 offsets = { # compensation for different camera positions (in m)
     "right": -0.0375,
-    "rectified_right": -0.0375,
-    "color": 0,
+    "vertical": -0.0375,
+    "center": 0,
     "left": 0.0375,
     "rectified_left": 0.0375,
 }
@@ -67,11 +67,13 @@ if __name__ == "__main__":
 
 	device = Device(device_info)
 
+	print("Found device")
 
 	msg = ""
 
 	while True:
 		device.update()
+
 
 		if len(device.last_frame.keys()) == 0:
 			continue
@@ -89,9 +91,17 @@ if __name__ == "__main__":
 			roll_angle = yaw_angle = pitch_angle = np.nan
 			try:
 				points = get_corners(img_gray)
+				#if name=="vertical" or name=="center":
+				#	print(f"{name}, Points {points}")
 				center_x, center_y = get_center(points)
+				#if name=="vertical" or name=="center":
+				#	print(f"{name}, Center {center_x, center_y}")
 				angle = get_rotation(points)
+				#if name=="vertical" or name=="center":
+				#	print(f"{name}, Angle {angle}")
 				board_width = get_board_width(points)
+				#if name=="vertical" or name=="center":
+				#	print(f"{name}, Board {board_width}")
 				px2m = 0.6 / board_width
 				offset = offsets[name]
 
@@ -122,8 +132,6 @@ if __name__ == "__main__":
 			i += 1
 		cv2.imshow("preview", img_combined)
 
-		depth_msg = device.depth_queue.tryGet()
-
 		key = cv2.waitKey(1)
 
 		if key == ord('s'):
@@ -133,8 +141,8 @@ if __name__ == "__main__":
 				msg = "Saved"
 				for name, img in device.last_frame.items():
 					cv2.imwrite(f"{device.device_dir}/{name}.png", img)
-
-				for cam_a, cam_b in combinations(["left", "right", "color"], 2):
+				print(name)
+				for cam_a, cam_b in combinations(["left", "right", "color", "vertical", "center"], 2):
 					results[f"{cam_a}_{cam_b}_roll_diff"] = np.abs(results[f"{cam_a}_roll_angle"] - results[f"{cam_b}_roll_angle"])
 					results[f"{cam_a}_{cam_b}_yaw_diff"] = np.abs(results[f"{cam_a}_yaw_angle"] - results[f"{cam_b}_yaw_angle"])
 					results[f"{cam_a}_{cam_b}_pitch_diff"] = np.abs(results[f"{cam_a}_pitch_angle"] - results[f"{cam_b}_pitch_angle"])
