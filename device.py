@@ -6,7 +6,7 @@ import cv2
 from pathlib import Path
 
 class Device:
-	def __init__(self, device_info: dai.DeviceInfo):
+	def __init__(self, device_info: dai.DeviceInfo, create_stereo=False):
 		self.device = dai.Device(device_info)
 		self.last_frame: Dict[str, np.ndarray] = {}
 		self.device_dir = Path(__file__).parent / "data" / self.device.getMxId()
@@ -14,7 +14,7 @@ class Device:
 
 		print(f"Connecting to {self.device.getMxId()}")	
 		self.calibration = self.device.readCalibration2()
-
+		self.stereo = False
 
 		# create pipeline
 		self.pipeline = dai.Pipeline()
@@ -26,16 +26,7 @@ class Device:
 			xout = self.pipeline.createXLinkOut()
 			xout.setStreamName(camera.name)
 
-			if dai.CameraSensorType.COLOR in camera.supportedTypes:
-				# create color camera
-				cam_node = self.pipeline.createColorCamera()
-				cam_node.setBoardSocket(camera.socket)
-				res = cam_to_rgb_res(camera.sensorName)
-				if res is not None:
-					cam_node.setResolution(res)
-				cam_node.setIspScale(2, 3)
-				cam_node.isp.link(xout.input)
-			elif dai.CameraSensorType.MONO in camera.supportedTypes:
+			if dai.CameraSensorType.MONO in camera.supportedTypes:
 				# create mono camera
 				cam_node = self.pipeline.createMonoCamera()
 				cam_node.setBoardSocket(camera.socket)
@@ -44,15 +35,23 @@ class Device:
 					cam_node.setResolution(res)
 				cam_node.out.link(xout.input)
 			else:
-				# unsupported sensor type
-				continue
+				if dai.CameraSensorType.COLOR not in camera.supportedTypes:
+					print(f"Warning - camera {camera.name} is not in mono or color mode - assuming color")
+				# create color camera
+				cam_node = self.pipeline.createColorCamera()
+				cam_node.setBoardSocket(camera.socket)
+				res = cam_to_rgb_res(camera.sensorName)
+				if res is not None:
+					cam_node.setResolution(res)
+				cam_node.setIspScale(2, 3)
+				cam_node.isp.link(xout.input)
 			if camera.socket == self.calibration.getStereoLeftCameraId():
 				self.left_camera = cam_node
 			if camera.socket == self.calibration.getStereoRightCameraId():
 				self.right_camera = cam_node
 			self.camera_nodes.append(cam_node)
 
-		if self.left_camera is not None and self.right_camera is not None:
+		if self.left_camera is not None and self.right_camera is not None and create_stereo:
 			# create a depth stream and rectified left/right stream for default stereo pair
 			stereo_depth = self.pipeline.createStereoDepth()
 			stereo_depth.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
@@ -83,21 +82,21 @@ class Device:
 			stereo_depth.depth.link(xout_depth.input)
 			stereo_depth.rectifiedLeft.link(xout_rectified_left.input)
 			stereo_depth.rectifiedRight.link(xout_rectified_right.input)
-
+			self.stereo = True
 
 
 		self.device.startPipeline(self.pipeline)
-
 		# get the quueues
 		self.camera_queues: Dict[str, dai.DataOutputQueue] = {}
 
 		for camera in self.device.getConnectedCameraFeatures():
 			self.camera_queues[camera.name] = self.device.getOutputQueue(name=camera.name, maxSize=1, blocking=False)
 
-		self.camera_queues["rectified_left"] = self.device.getOutputQueue("rectified_left")
-		self.camera_queues["rectified_right"] = self.device.getOutputQueue("rectified_right")
+		if self.stereo:
+			self.camera_queues["rectified_left"] = self.device.getOutputQueue("rectified_left")
+			self.camera_queues["rectified_right"] = self.device.getOutputQueue("rectified_right")
 
-		self.depth_queue = self.device.getOutputQueue("depth")
+			self.depth_queue = self.device.getOutputQueue("depth")
 
 	def update(self):
 		res: Dict[str, np.ndarray] = {}
@@ -107,8 +106,8 @@ class Device:
 				img = msg.getCvFrame() # type: ignore
 				res[name] = img
 				self.last_frame[name] = img
-
-		depth_msg = self.depth_queue.tryGet()
+		if self.stereo:
+			depth_msg = self.depth_queue.tryGet()
 
 		return res
 
@@ -124,8 +123,8 @@ class Device:
 
 				self.last_frame[name] = img
 				cv2.imshow(name, img_downscaled)
-
-		depth_msg = self.depth_queue.tryGet()
+		if self.stereo:
+			depth_msg = self.depth_queue.tryGet()
 
 		key = cv2.waitKey(1)
 
@@ -139,8 +138,7 @@ if __name__ == "__main__":
 
 	if not found:
 		raise Exception("No device connected!")
-	
-	device = Device(device_info)
 
+	device = Device(device_info)
 	while True:
 		device.update_debug()
