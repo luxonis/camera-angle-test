@@ -14,7 +14,7 @@ class Device:
 
 		print(f"Connecting to {self.device.getMxId()}")	
 		self.calibration = self.device.readCalibration2()
-		self.stereo = False
+		self.stereo = True
 
 		# create pipeline
 		self.pipeline = dai.Pipeline()
@@ -74,7 +74,8 @@ class Device:
 
 			xout_depth = self.pipeline.createXLinkOut()
 			xout_depth.setStreamName("depth")
-			if self.device.getMxId()!="xlinkserver":
+			print(self.stereo)
+			if self.stereo:
 				xout_rectified_left = self.pipeline.createXLinkOut()
 				xout_rectified_left.setStreamName("rectified_left")
 				xout_rectified_right = self.pipeline.createXLinkOut()
@@ -92,9 +93,6 @@ class Device:
 
 		for camera in self.device.getConnectedCameraFeatures():
 			self.camera_queues[camera.name] = self.device.getOutputQueue(name=camera.name, maxSize=1, blocking=False)
-		if self.device.getMxId()!="xlinkserver":
-			self.camera_queues["rectified_left"] = self.device.getOutputQueue("rectified_left")
-			self.camera_queues["rectified_right"] = self.device.getOutputQueue("rectified_right")
 
 		if self.stereo:
 			self.camera_queues["rectified_left"] = self.device.getOutputQueue("rectified_left")
