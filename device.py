@@ -25,6 +25,7 @@ class Device:
 		for camera in self.device.getConnectedCameraFeatures():
 			xout = self.pipeline.createXLinkOut()
 			xout.setStreamName(camera.name)
+			print(camera.name)
 
 			if dai.CameraSensorType.MONO in camera.supportedTypes:
 				# create mono camera

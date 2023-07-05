@@ -7,26 +7,95 @@ from itertools import combinations
 
 
 
-CAMERA_WALL_DISTANCE = 1 # m
+CAMERA_WALL_DISTANCE = 1.019  # m
 
 frame_width = 300
-
+"""
+#OAK-D-PRO
+#CAMERA_WALL_DISTANCE = 1.052 # m
 offsets = { # compensation for different camera positions (in m)
     "right": -0.0375,
+    "rectified_right": -0.0375,
     "vertical": -0.0375,
-    "center": 0,
+    "color": 0,
     "left": 0.0375,
     "rectified_left": 0.0375,
 }
 
+comb=["left", "right", "rectified_right", "rectified_left", "color"]
 offsets_y = { # compensation for different camera positions (in m)
     "right": 0,
-    "vertical": 0.0,
+    "rectified_right": 0,
+    "vertical": 0,
+    "color": 0,
+    "left": 0,
+    "rectified_left": 0,
+}
+"""
+
+"""
+#RVC3
+#CAMERA_WALL_DISTANCE = 0.987 # m
+offsets = { # compensation for different camera positions (in m)
+    "right": -0.05,
+    "rectified_right": -0.05,
+    "vertical": 0.05,
+    "center": 0,
+    "left": 0.05,
+    "rectified_left": 0.05,
+}
+
+comb=["left", "right", "rectified_right", "rectified_left", "center", "vertical"]
+offsets_y = { # compensation for different camera positions (in m)
+    "right": 0,
+    "rectified_right": 0,
+    "vertical": -0.04,
     "center": 0,
     "left": 0,
     "rectified_left": 0,
 }
+"""
 
+
+"""
+#OAK-PRO-POE
+#CAMERA_WALL_DISTANCE = 1.020 # m
+offsets = { # compensation for different camera positions (in m)
+    "right": -0.0375,
+    "rectified_right": -0.0375,
+    "color": 0,
+    "left": 0.0375,
+    "rectified_left": 0.0375,
+}
+
+comb=["left", "right", "rectified_right", "rectified_left", "color"]
+offsets_y = { # compensation for different camera positions (in m)
+    "right": 0,
+    "rectified_right": 0,
+    "color": 0,
+    "left": 0,
+    "rectified_left": 0,
+}
+"""
+
+#OAK-PRO-POE
+#CAMERA_WALL_DISTANCE = 1.019 # m
+offsets = { # compensation for different camera positions (in m)
+    "right": -0.0375,
+    "rectified_right": -0.0375,
+    "color": 0,
+    "left": 0.0375,
+    "rectified_left": 0.0375,
+}
+
+comb=["left", "right", "rectified_right", "rectified_left", "color"]
+offsets_y = { # compensation for different camera positions (in m)
+    "right": 0,
+    "rectified_right": 0,
+    "color": 0,
+    "left": 0,
+    "rectified_left": 0,
+}
 
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
 
@@ -90,6 +159,9 @@ if __name__ == "__main__":
 		img_combined = np.zeros((frame_width, frame_width*len(device.last_frame.keys()), 3), dtype=np.uint8)
 		i = 0
 		results = {}
+		results["distance"] = CAMERA_WALL_DISTANCE
+		results["offsets"] = offsets
+		results["offsets_y"] = offsets_y
 		all_cams_detected = True
 
 		for name, img in device.last_frame.items():
@@ -152,7 +224,7 @@ if __name__ == "__main__":
 				for name, img in device.last_frame.items():
 					cv2.imwrite(f"{device.device_dir}/{name}.png", img)
 				print(name)
-				for cam_a, cam_b in combinations(["left", "right", "color", "vertical", "center"], 2):
+				for cam_a, cam_b in combinations(comb, 2):
 					results[f"{cam_a}_{cam_b}_roll_diff"] = np.abs(results[f"{cam_a}_roll_angle"] - results[f"{cam_b}_roll_angle"])
 					results[f"{cam_a}_{cam_b}_yaw_diff"] = np.abs(results[f"{cam_a}_yaw_angle"] - results[f"{cam_b}_yaw_angle"])
 					results[f"{cam_a}_{cam_b}_pitch_diff"] = np.abs(results[f"{cam_a}_pitch_angle"] - results[f"{cam_b}_pitch_angle"])
