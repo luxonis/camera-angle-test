@@ -22,12 +22,13 @@ class Device:
 		self.camera_nodes: List[Union[dai.node.ColorCamera, dai.node.MonoCamera]] = []
 		self.left_camera: Optional[Union[dai.node.ColorCamera, dai.node.MonoCamera]] = None
 		self.right_camera: Optional[Union[dai.node.ColorCamera, dai.node.MonoCamera]] = None
+		print(self.device.getConnectedCameraFeatures())
 		for camera in self.device.getConnectedCameraFeatures():
 			xout = self.pipeline.createXLinkOut()
 			xout.setStreamName(camera.name)
 			print(camera.name)
 
-			if dai.CameraSensorType.MONO in camera.supportedTypes:
+			if dai.CameraSensorType.MONO in camera.supportedTypes and dai.CameraSensorType.COLOR not in camera.supportedTypes:
 				# create mono camera
 				cam_node = self.pipeline.createMonoCamera()
 				cam_node.setBoardSocket(camera.socket)
@@ -93,7 +94,7 @@ class Device:
 		self.camera_queues: Dict[str, dai.DataOutputQueue] = {}
 
 		for camera in self.device.getConnectedCameraFeatures():
-			self.camera_queues[camera.name] = self.device.getOutputQueue(name=camera.name, maxSize=1, blocking=False)
+			self.camera_queues[camera.name] = self.device.getOutputQueue(name=camera.name, maxSize=4, blocking=False)
 
 		if self.stereo:
 			self.camera_queues["rectified_left"] = self.device.getOutputQueue("rectified_left")
